@@ -36,7 +36,7 @@ interface UserProfile {
   username?: string;
   firstName?: string;
   lastName?: string;
-  dailyGoal: number;
+  daily_goal?: number; 
   created_at?: string;
   photoUrl?: string;
 }
@@ -114,7 +114,7 @@ export const MainPage: React.FC = () => {
             username: user.username,
             firstName: user.first_name,
             lastName: user.last_name,
-            dailyGoal: 2000,
+            daily_goal: 2000, 
             photoUrl: user.photo_url
           };
           
@@ -260,7 +260,7 @@ export const MainPage: React.FC = () => {
       
       const { error } = await supabase
         .from('profiles')
-        .update({ dailyGoal: newGoal })
+        .update({ daily_goal: newGoal }) 
         .eq('userId', profile.userId);
 
       if (error) {
@@ -269,7 +269,7 @@ export const MainPage: React.FC = () => {
         return;
       }
 
-      setProfile({ ...profile, dailyGoal: newGoal });
+      setProfile({ ...profile, daily_goal: newGoal });
       setShowGoalInput(false);
       setGoalInput('');
     } catch (err) {
@@ -280,7 +280,7 @@ export const MainPage: React.FC = () => {
 
   const getProgressPercentage = () => {
     if (!profile) return 0;
-    return Math.min(Math.round((totalToday / profile.dailyGoal) * 100), 100);
+    return Math.min(Math.round((totalToday / (profile.daily_goal || 2000)) * 100), 100);
   };
 
   const toggleProfilePopover = () => {
@@ -369,7 +369,7 @@ export const MainPage: React.FC = () => {
                 
                 <div className="profile-details">
                   <p><strong>User ID:</strong> {telegramUser?.id}</p>
-                  <p><strong>Daily Goal:</strong> {profile?.dailyGoal}ml</p>
+                  <p><strong>Daily Goal:</strong> {profile?.daily_goal}ml</p>
                   <p><strong>Today's Progress:</strong> {getProgressPercentage()}%</p>
                 </div>
                 
@@ -393,7 +393,7 @@ export const MainPage: React.FC = () => {
             ></div>
             <div className="water-text">
               <div className="water-amount">{totalToday}ml</div>
-              <div className="water-goal">of {profile?.dailyGoal}ml</div>
+              <div className="water-goal">of {profile?.daily_goal || 2000}ml</div>
             </div>
           </div>
           <div 
