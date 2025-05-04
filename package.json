@@ -1,9 +1,12 @@
 {
-  "name": "reactjs-template",
+  "name": "reminder-app",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
-  "homepage": "https://telegram-mini-apps.github.io/reactjs-template",
+  "homepage": "https://reminder.hanslibrary.space/#/",
+  "description": "A reminder app for Telegram.",
+  "author": "Hans",
+  "license": "MIT",
   "scripts": {
     "deploy": "gh-pages -d dist",
     "dev": "vite",
@@ -12,14 +15,12 @@
     "lint": "eslint --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "preview": "vite preview",
-    "predeploy": "npm run build"
+    "predeploy": "pnpm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
     "@telegram-apps/sdk-react": "^3.2.4",
     "@telegram-apps/telegram-ui": "^2.1.8",
-    "@tonconnect/ui-react": "^2.1.0",
-    "eruda": "^3.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.0"
