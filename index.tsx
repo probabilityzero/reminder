@@ -10,7 +10,7 @@ import { EnvUnsupported } from '@/components/EnvUnsupported.tsx';
 import { init } from '@/lib/init.ts';
 
 import './index.css';
-import './lib/mockEnv.ts';
+import './lib/mock.ts';
 
 const App = () => {
   const lp = useMemo(() => retrieveLaunchParams(), []);
