@@ -16,7 +16,7 @@
     "noUnusedParameters": true,
     "paths": {
       "@/*": [
-        "./src/*"
+        "./*"
       ]
     },
     "resolveJsonModule": true,
@@ -29,7 +29,8 @@
     ]
   },
   "include": [
-    "src"
+    "./**/*.ts",
+    "./**/*.tsx"
   ],
   "references": [
     {
