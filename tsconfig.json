@@ -25,12 +25,20 @@
     "target": "ES2020",
     "useDefineForClassFields": true,
     "types": [
-      "vite/client"
-    ]
+      "vite/client",
+      "node"
+    ],
+    "allowJs": true,
+    "esModuleInterop": true
   },
   "include": [
     "./**/*.ts",
     "./**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "vite.config.ts"
   ],
   "references": [
     {

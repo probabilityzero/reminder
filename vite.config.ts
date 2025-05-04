@@ -2,10 +2,11 @@ import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import react from '@vitejs/plugin-react-swc';
 import mkcert from 'vite-plugin-mkcert';
-import { fileURLToPath, URL } from 'url';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Automatically use correct base path for GitHub Pages or Vercel
   base: '/',
   css: {
     preprocessorOptions: {
@@ -15,29 +16,30 @@ export default defineConfig({
     },
   },
   plugins: [
-    // Allows using React dev server along with building a React application with Vite.
-    // https://npmjs.com/package/@vitejs/plugin-react-swc
+    // React plugin
     react(),
-    // Allows using the compilerOptions.paths property in tsconfig.json.
-    // https://www.npmjs.com/package/vite-tsconfig-paths
+    // TypeScript paths plugin
     tsconfigPaths(),
-    // Creates a custom SSL certificate valid for the local machine.
-    // Using this plugin requires admin rights on the first dev-mode launch.
-    // https://www.npmjs.com/package/vite-plugin-mkcert
-    process.env.HTTPS && mkcert(),
-  ],
+    // HTTPS certificate plugin (only when HTTPS env var is set)
+    process.env.HTTPS ? mkcert() : null,
+  ].filter(Boolean),
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./', import.meta.url))
+      '@': path.resolve(__dirname, './')
     }
   },
   build: {
     target: 'esnext',
+    outDir: 'dist',
+    sourcemap: true,
   },
   publicDir: './public',
   server: {
-    // Exposes your dev server and makes it accessible for the devices in the same network.
+    // Exposes dev server for network access
     host: true,
+    port: 3000,
+    // Fixed: Use an empty object for HTTPS configuration instead of boolean
+    https: process.env.HTTPS ? {} : undefined,
   },
 });
 
