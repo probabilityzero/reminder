@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Title, Spinner, Cell, List, Card, Avatar } from '@telegram-apps/telegram-ui';
 import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, checkSupabaseConnection } from '@/lib/supabase';
 import * as RadixAvatar from '@radix-ui/react-avatar';
 import * as Popover from '@radix-ui/react-popover';
 import { useThemeParams } from '@/lib/ThemeUtils';
@@ -59,8 +59,28 @@ export const MainPage: React.FC = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
+        console.log("Starting data fetch process...");
+        
+        // First check if Supabase is accessible
+        const isConnected = await checkSupabaseConnection();
+        if (!isConnected) {
+          setError('Cannot connect to database. Please try again later.');
+          setLoading(false);
+          return;
+        }
+        
+        console.log("Retrieving Telegram user data...");
         const lp = retrieveLaunchParams() as unknown as LaunchParams;
-        const user = lp.user || lp.tgWebAppInitDataUnsafe?.user || window.Telegram?.WebApp?.initDataUnsafe?.user;
+        
+        // Log the entire launch params for debugging
+        console.log("Launch params:", JSON.stringify(lp, null, 2));
+        
+        // Try to get user from multiple possible locations
+        const user = lp.user || 
+                   lp.tgWebAppInitDataUnsafe?.user || 
+                   window.Telegram?.WebApp?.initDataUnsafe?.user;
+        
+        console.log("User data extracted:", user ? JSON.stringify(user) : "No user found");
         
         if (!user) {
           console.error('No user found in launch params');
@@ -69,17 +89,26 @@ export const MainPage: React.FC = () => {
           return;
         }
 
+        // Set the user immediately for UI purposes
         setTelegramUser(user);
         
+        console.log(`Checking for existing profile with userId: ${user.id}`);
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('userId', user.id.toString())
           .single();
 
+        console.log("Profile query result:", { 
+          profileData: profileData || "No profile found", 
+          error: profileError ? profileError.message : "No error" 
+        });
+
         let userProfile = profileData;
 
         if (!userProfile || profileError) {
+          console.log("Creating new user profile...");
+          
           const newProfile: UserProfile = {
             userId: user.id.toString(),
             username: user.username,
@@ -89,22 +118,41 @@ export const MainPage: React.FC = () => {
             photoUrl: user.photo_url
           };
           
+          console.log("New profile data:", newProfile);
+          
           const { data: insertedProfile, error: insertError } = await supabase
             .from('profiles')
             .insert(newProfile)
             .select();
 
+          console.log("Insert result:", { 
+            insertedProfile: insertedProfile || "No data returned", 
+            error: insertError ? insertError.message : "No error" 
+          });
+
           if (insertError) {
             console.error('Error creating profile:', insertError);
-            setError('Failed to create user profile');
+            setError(`Failed to create user profile: ${insertError.message}`);
+            setLoading(false);
+            return;
           } else if (insertedProfile && insertedProfile.length > 0) {
             userProfile = insertedProfile[0];
+            console.log("Successfully created profile:", userProfile);
+          } else {
+            setError('Failed to create user profile: No data returned');
+            setLoading(false);
+            return;
           }
         } else {
+          console.log("Found existing profile:", userProfile);
+          
+          // Update profile with latest Telegram data if needed
           if (user.photo_url !== userProfile.photoUrl || 
               user.first_name !== userProfile.firstName ||
               user.last_name !== userProfile.lastName ||
               user.username !== userProfile.username) {
+            
+            console.log("Updating user profile with latest Telegram data");
             
             const updates = {
               firstName: user.first_name,
@@ -118,6 +166,10 @@ export const MainPage: React.FC = () => {
               .update(updates)
               .eq('userId', user.id.toString());
               
+            console.log("Update result:", {
+              error: updateError ? updateError.message : "No error"
+            });
+              
             if (updateError) {
               console.error('Error updating profile:', updateError);
             } else {
@@ -126,32 +178,46 @@ export const MainPage: React.FC = () => {
           }
         }
 
+        // Set profile data for UI
+        setProfile(userProfile);
+
+        // Now fetch water intake data
+        console.log(`Fetching water intake for user ${user.id} on ${today}`);
         const { data: intakeData, error: intakeError } = await supabase
           .from('water_intake')
           .select('*')
           .eq('userId', user.id.toString())
           .eq('date', today);
 
+        console.log("Water intake query result:", { 
+          data: intakeData || "No data", 
+          error: intakeError ? intakeError.message : "No error" 
+        });
+
         if (intakeError) {
           console.error('Error fetching intake:', intakeError);
-          setError('Failed to fetch water intake data');
+          setError(`Failed to fetch water intake data: ${intakeError.message}`);
+          setLoading(false);
+          return;
         }
 
-        const total = (intakeData || []).reduce((sum, entry) => sum + entry.amount, 0);
+        // Calculate total intake for today
+        const intakeList = intakeData || [];
+        const total = intakeList.reduce((sum, entry) => sum + entry.amount, 0);
+        console.log("Total water intake today:", total);
 
-        setProfile(userProfile);
-        setTodayIntake(intakeData || []);
+        setTodayIntake(intakeList);
         setTotalToday(total);
+        setLoading(false);
       } catch (error) {
-        console.error('Error in fetchUserData:', error);
-        setError('An unexpected error occurred');
-      } finally {
+        console.error('Unexpected error in fetchUserData:', error);
+        setError(`An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`);
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, []);
+  }, [today]);
 
   const addWaterIntake = async (amount: number) => {
     if (!profile) return;
@@ -225,6 +291,7 @@ export const MainPage: React.FC = () => {
     return (
       <div className="page-container center-content">
         <Spinner size="m" />
+        <p className="loading-message">Connecting to database...</p>
       </div>
     );
   }
@@ -233,8 +300,14 @@ export const MainPage: React.FC = () => {
     return (
       <div className="page-container center-content">
         <div className="error-message">
-          <Title level="2">Error</Title>
+          <Title level="2">Connection Error</Title>
           <p>{error}</p>
+          <div className="debug-info">
+            <p><strong>Debug Info:</strong></p>
+            <p>Telegram User: {telegramUser?.id ? 'Found' : 'Not Found'}</p>
+            <p>Platform: {window.Telegram?.WebApp?.platform || 'Unknown'}</p>
+            <p>Browser: {navigator.userAgent}</p>
+          </div>
           <Button size="m" onClick={() => window.location.reload()}>Try Again</Button>
         </div>
       </div>
