@@ -50,6 +50,150 @@ body {
   margin-top: 8px;
 }
 
+/* Header with profile */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.profile-container {
+  position: relative;
+}
+
+.profile-avatar {
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: opacity 0.2s;
+  overflow: hidden;
+}
+
+.profile-avatar-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.profile-avatar:hover {
+  opacity: 0.8;
+}
+
+.profile-popover {
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  width: 260px;
+  z-index: 100;
+  animation-duration: 0.2s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.popover-arrow {
+  fill: var(--tg-theme-bg-color, #ffffff);
+}
+
+.profile-popover[data-state='open'] {
+  animation-name: slideDownAndFade;
+}
+
+@keyframes slideDownAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.profile-name {
+  margin-left: 12px;
+}
+
+.profile-name h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #000);
+}
+
+.profile-name p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #999);
+}
+
+.profile-details {
+  margin-bottom: 16px;
+}
+
+.profile-details p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: var(--tg-theme-text-color, #000);
+}
+
+/* Radix UI Avatar styles */
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-fallback {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--tg-theme-button-color, #50a8eb);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  font-size: 18px;
+  font-weight: 500;
+  border-radius: 50%;
+}
+
+.avatar-fallback-large {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--tg-theme-button-color, #50a8eb);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  font-size: 24px;
+  font-weight: 500;
+  border-radius: 50%;
+}
+
+/* Error message */
+.error-message {
+  text-align: center;
+  padding: 24px;
+  background-color: var(--tg-theme-bg-color, #fff);
+  border-radius: 12px;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.error-message p {
+  margin: 12px 0 20px;
+  color: var(--tg-theme-hint-color, #999);
+}
+
 /* Water tracking visualization */
 .water-goal-container {
   display: flex;
@@ -158,4 +302,28 @@ body {
 @keyframes fill {
   from { height: 0; }
   to { height: var(--target-height); }
+}
+
+/* Error container */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 24px;
+  text-align: center;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.error-container h1 {
+  margin-bottom: 16px;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.error-container p {
+  margin-bottom: 12px;
+  font-size: 16px;
 }
