@@ -1,42 +1,89 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Your Supabase URL and anon key should be stored in environment variables
-// For development, we can hardcode them (but use environment variables in production)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-url.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
+// Replace these with your actual Supabase URL and anon key
+const supabaseUrl = 'https://xzlycruzioafltqkeirb.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHljcnV6aW9hZmx0cWtlaXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYzNjYyOTksImV4cCI6MjA2MTk0MjI5OX0.XCTz3DYxV_qeSE76i8QG0tXCR8MUTOwwqldwxUG_nB4';
 
+// Make sure these are set correctly
 if (!supabaseUrl || !supabaseAnonKey || 
-    supabaseUrl === 'https://your-project-url.supabase.co' || 
-    supabaseAnonKey === 'your-anon-key') {
-  console.error('Supabase URL or anon key not properly configured!');
+    supabaseUrl === 'https://xzlycruzioafltqkeirb.supabase.co' || 
+    supabaseAnonKey === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHljcnV6aW9hZmx0cWtlaXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYzNjYyOTksImV4cCI6MjA2MTk0MjI5OX0.XCTz3DYxV_qeSE76i8QG0tXCR8MUTOwwqldwxUG_nB4') {
+  console.error('⚠️ Supabase URL or anon key not properly configured!');
 }
 
-// Create a single supabase client for the entire app
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false // Don't persist session in Telegram environment
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json'
-    },
-  },
+    persistSession: false, // Don't persist session in Telegram environment
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
 });
 
-// Helper to check if Supabase connection is working
+// Check if Supabase is accessible
 export async function checkSupabaseConnection(): Promise<boolean> {
   try {
-    const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+    console.log('Testing Supabase connection...');
+    
+    // Simple query to check if we can connect
+    const { error } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .limit(1);
     
     if (error) {
-      console.error('Supabase connection check failed:', error);
+      console.error('❌ Supabase connection failed:', error.message);
       return false;
     }
     
-    console.log('Supabase connection successful');
+    console.log('✅ Supabase connection successful');
     return true;
   } catch (err) {
-    console.error('Error checking Supabase connection:', err);
+    console.error('❌ Error checking Supabase connection:', err);
     return false;
   }
 }
+
+// Utility function to log detailed schema information
+export async function logTableSchema(tableName: string): Promise<void> {
+  try {
+    console.log(`🔍 Examining table schema for '${tableName}'...`);
+    
+    // Query to get all column information
+    const { data, error } = await supabase.rpc('get_schema_info', { table_name: tableName });
+    
+    if (error) {
+      console.error(`❌ Error getting schema for '${tableName}':`, error.message);
+      return;
+    }
+    
+    console.log(`📋 Schema for '${tableName}':`, data);
+  } catch (err) {
+    console.error(`❌ Error in logTableSchema for '${tableName}':`, err);
+  }
+}
+
+// Create the stored procedure for schema info if it doesn't exist
+// Run this in Supabase SQL Editor:
+/*
+CREATE OR REPLACE FUNCTION public.get_schema_info(table_name text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  result jsonb;
+BEGIN
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'column_name', column_name,
+      'data_type', data_type,
+      'is_nullable', is_nullable,
+      'column_default', column_default
+    )
+  ) INTO result
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+  AND table_name = $1;
+  
+  RETURN result;
+END;
+$$;
+*/

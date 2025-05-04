@@ -25,20 +25,20 @@ interface LaunchParams {
 
 interface WaterIntake {
   id: string;
-  userId: string;
+  user_id: string;
   amount: number;
   timestamp: string;
   date: string;
 }
 
 interface UserProfile {
-  userId: string;
+  user_id: string;
   username?: string;
-  firstName?: string;
-  lastName?: string;
-  daily_goal?: number; 
+  first_name?: string;
+  last_name?: string;
+  daily_goal: number;
   created_at?: string;
-  photoUrl?: string;
+  photo_url?: string;
 }
 
 export const MainPage: React.FC = () => {
@@ -53,178 +53,125 @@ export const MainPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const themeParams = useThemeParams();
-  
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        console.log("Starting data fetch process...");
-        
-        // First check if Supabase is accessible
-        const isConnected = await checkSupabaseConnection();
-        if (!isConnected) {
-          setError('Cannot connect to database. Please try again later.');
-          setLoading(false);
-          return;
-        }
-        
-        console.log("Retrieving Telegram user data...");
-        const lp = retrieveLaunchParams() as unknown as LaunchParams;
-        
-        // Log the entire launch params for debugging
-        console.log("Launch params:", JSON.stringify(lp, null, 2));
-        
-        // Try to get user from multiple possible locations
-        const user = lp.user || 
-                   lp.tgWebAppInitDataUnsafe?.user || 
-                   window.Telegram?.WebApp?.initDataUnsafe?.user;
-        
-        console.log("User data extracted:", user ? JSON.stringify(user) : "No user found");
-        
-        if (!user) {
-          console.error('No user found in launch params');
-          setError('Unable to retrieve user data from Telegram');
-          setLoading(false);
-          return;
-        }
+    fetchUserData();
+  }, []);
 
-        // Set the user immediately for UI purposes
-        setTelegramUser(user);
+  const fetchUserData = async () => {
+    try {
+      const isConnected = await checkSupabaseConnection();
+      if (!isConnected) {
+        setError('Cannot connect to database. Please try again later.');
+        setLoading(false);
+        return;
+      }
+      
+      const lp = retrieveLaunchParams() as unknown as LaunchParams;
+      const user = lp.user || 
+                  lp.tgWebAppInitDataUnsafe?.user || 
+                  window.Telegram?.WebApp?.initDataUnsafe?.user;
+      
+      if (!user) {
+        setError('Unable to retrieve user data from Telegram');
+        setLoading(false);
+        return;
+      }
+
+      setTelegramUser(user);
+      
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id.toString())
+        .single();
+
+      let userProfile = profileData;
+
+      if (!userProfile || profileError) {
+        const newProfile = {
+          user_id: user.id.toString(),
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          daily_goal: 2000,
+          photo_url: user.photo_url
+        };
         
-        console.log(`Checking for existing profile with userId: ${user.id}`);
-        const { data: profileData, error: profileError } = await supabase
+        const { data: insertedProfile, error: insertError } = await supabase
           .from('profiles')
-          .select('*')
-          .eq('userId', user.id.toString())
-          .single();
+          .insert(newProfile)
+          .select();
 
-        console.log("Profile query result:", { 
-          profileData: profileData || "No profile found", 
-          error: profileError ? profileError.message : "No error" 
-        });
-
-        let userProfile = profileData;
-
-        if (!userProfile || profileError) {
-          console.log("Creating new user profile...");
+        if (insertError) {
+          setError(`Failed to create user profile: ${insertError.message}`);
+          setLoading(false);
+          return;
+        } else if (insertedProfile && insertedProfile.length > 0) {
+          userProfile = insertedProfile[0];
+        } else {
+          setError('Failed to create user profile: No data returned');
+          setLoading(false);
+          return;
+        }
+      } 
+      else {
+        if (user.photo_url !== userProfile.photo_url || 
+            user.first_name !== userProfile.first_name ||
+            user.last_name !== userProfile.last_name ||
+            user.username !== userProfile.username) {
           
-          const newProfile: UserProfile = {
-            userId: user.id.toString(),
+          const updates = {
+            first_name: user.first_name,
+            last_name: user.last_name,
             username: user.username,
-            firstName: user.first_name,
-            lastName: user.last_name,
-            daily_goal: 2000, 
-            photoUrl: user.photo_url
+            photo_url: user.photo_url
           };
           
-          console.log("New profile data:", newProfile);
-          
-          const { data: insertedProfile, error: insertError } = await supabase
+          const { error: updateError } = await supabase
             .from('profiles')
-            .insert(newProfile)
-            .select();
-
-          console.log("Insert result:", { 
-            insertedProfile: insertedProfile || "No data returned", 
-            error: insertError ? insertError.message : "No error" 
-          });
-
-          if (insertError) {
-            console.error('Error creating profile:', insertError);
-            setError(`Failed to create user profile: ${insertError.message}`);
-            setLoading(false);
-            return;
-          } else if (insertedProfile && insertedProfile.length > 0) {
-            userProfile = insertedProfile[0];
-            console.log("Successfully created profile:", userProfile);
-          } else {
-            setError('Failed to create user profile: No data returned');
-            setLoading(false);
-            return;
-          }
-        } else {
-          console.log("Found existing profile:", userProfile);
-          
-          // Update profile with latest Telegram data if needed
-          if (user.photo_url !== userProfile.photoUrl || 
-              user.first_name !== userProfile.firstName ||
-              user.last_name !== userProfile.lastName ||
-              user.username !== userProfile.username) {
+            .update(updates)
+            .eq('user_id', user.id.toString());
             
-            console.log("Updating user profile with latest Telegram data");
-            
-            const updates = {
-              firstName: user.first_name,
-              lastName: user.last_name,
-              username: user.username,
-              photoUrl: user.photo_url
-            };
-            
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update(updates)
-              .eq('userId', user.id.toString());
-              
-            console.log("Update result:", {
-              error: updateError ? updateError.message : "No error"
-            });
-              
-            if (updateError) {
-              console.error('Error updating profile:', updateError);
-            } else {
-              userProfile = { ...userProfile, ...updates };
-            }
+          if (!updateError) {
+            userProfile = { ...userProfile, ...updates };
           }
         }
-
-        // Set profile data for UI
-        setProfile(userProfile);
-
-        // Now fetch water intake data
-        console.log(`Fetching water intake for user ${user.id} on ${today}`);
-        const { data: intakeData, error: intakeError } = await supabase
-          .from('water_intake')
-          .select('*')
-          .eq('userId', user.id.toString())
-          .eq('date', today);
-
-        console.log("Water intake query result:", { 
-          data: intakeData || "No data", 
-          error: intakeError ? intakeError.message : "No error" 
-        });
-
-        if (intakeError) {
-          console.error('Error fetching intake:', intakeError);
-          setError(`Failed to fetch water intake data: ${intakeError.message}`);
-          setLoading(false);
-          return;
-        }
-
-        // Calculate total intake for today
-        const intakeList = intakeData || [];
-        const total = intakeList.reduce((sum, entry) => sum + entry.amount, 0);
-        console.log("Total water intake today:", total);
-
-        setTodayIntake(intakeList);
-        setTotalToday(total);
-        setLoading(false);
-      } catch (error) {
-        console.error('Unexpected error in fetchUserData:', error);
-        setError(`An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`);
-        setLoading(false);
       }
-    };
 
-    fetchUserData();
-  }, [today]);
+      setProfile(userProfile);
+
+      const { data: intakeData, error: intakeError } = await supabase
+        .from('water_intake')
+        .select('*')
+        .eq('user_id', user.id.toString())
+        .eq('date', today);
+
+      if (intakeError) {
+        setError(`Failed to fetch water intake data: ${intakeError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      const intakeList = intakeData || [];
+      const total = intakeList.reduce((sum, entry) => sum + entry.amount, 0);
+
+      setTodayIntake(intakeList);
+      setTotalToday(total);
+      setLoading(false);
+    } catch (error) {
+      setError(`An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`);
+      setLoading(false);
+    }
+  };
 
   const addWaterIntake = async (amount: number) => {
     if (!profile) return;
 
     try {
-      const newIntake: Partial<WaterIntake> = {
-        userId: profile.userId,
+      const newIntake = {
+        user_id: profile.user_id,
         amount,
         date: today,
         timestamp: new Date().toISOString()
@@ -236,7 +183,6 @@ export const MainPage: React.FC = () => {
         .select();
 
       if (error) {
-        console.error('Error adding water intake:', error);
         setError('Failed to save water intake');
         return;
       }
@@ -246,7 +192,6 @@ export const MainPage: React.FC = () => {
         setTotalToday(totalToday + amount);
       }
     } catch (err) {
-      console.error('Unexpected error in addWaterIntake:', err);
       setError('Failed to add water intake');
     }
   };
@@ -261,10 +206,9 @@ export const MainPage: React.FC = () => {
       const { error } = await supabase
         .from('profiles')
         .update({ daily_goal: newGoal }) 
-        .eq('userId', profile.userId);
+        .eq('user_id', profile.user_id);
 
       if (error) {
-        console.error('Error updating goal:', error);
         setError('Failed to update daily goal');
         return;
       }
@@ -273,7 +217,6 @@ export const MainPage: React.FC = () => {
       setShowGoalInput(false);
       setGoalInput('');
     } catch (err) {
-      console.error('Unexpected error in updateDailyGoal:', err);
       setError('Failed to update daily goal');
     }
   };
@@ -283,8 +226,14 @@ export const MainPage: React.FC = () => {
     return Math.min(Math.round((totalToday / (profile.daily_goal || 2000)) * 100), 100);
   };
 
-  const toggleProfilePopover = () => {
-    setShowProfilePopover(!showProfilePopover);
+  const logTableSchema = async (tableName: string) => {
+    try {
+      const { data: columns } = await supabase.rpc('get_schema_info', { table_name: tableName });
+      console.log(`Schema for table ${tableName}:`, columns);
+    } catch (error) {
+      console.error(`Failed to fetch schema for table ${tableName}:`, error);
+      throw error;
+    }
   };
 
   if (loading) {
@@ -308,21 +257,34 @@ export const MainPage: React.FC = () => {
             <p>Platform: {window.Telegram?.WebApp?.platform || 'Unknown'}</p>
             <p>Browser: {navigator.userAgent}</p>
           </div>
-          <Button size="m" onClick={() => window.location.reload()}>Try Again</Button>
+          <div className="error-actions">
+            <Button size="m" onClick={() => window.location.reload()}>Try Again</Button>
+            <Button 
+              size="m" 
+              mode="outline" 
+              onClick={async () => {
+                try {
+                  await logTableSchema('profiles');
+                  alert('Schema info logged to console. Please check developer tools.');
+                } catch (e) {
+                  alert('Failed to check schema: ' + e);
+                }
+              }}
+            >
+              Check Schema
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Choose between Telegram UI and Radix UI for avatar
   const AvatarComponent = telegramUser?.photo_url ? (
-    // Try with Telegram UI first
-    <div className="profile-avatar" onClick={toggleProfilePopover}>
+    <div className="profile-avatar" onClick={() => setShowProfilePopover(true)}>
       <Avatar size={40} src={telegramUser.photo_url} />
     </div>
   ) : (
-    // Fallback to Radix UI Avatar
-    <RadixAvatar.Root className="profile-avatar" onClick={toggleProfilePopover}>
+    <RadixAvatar.Root className="profile-avatar" onClick={() => setShowProfilePopover(true)}>
       <RadixAvatar.Image
         className="avatar-image"
         src={telegramUser?.photo_url}
